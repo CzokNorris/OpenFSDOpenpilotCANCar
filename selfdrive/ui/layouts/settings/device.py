@@ -25,6 +25,7 @@ DESCRIPTIONS = {
   'driver_camera': tr_noop("Preview the driver facing camera to ensure that driver monitoring has good visibility. (vehicle must be off)"),
   'reset_calibration': tr_noop("openpilot requires the device to be mounted within 4° left or right and within 5° up or 9° down."),
   'review_guide': tr_noop("Review the rules, features, and limitations of openpilot"),
+  'force_onroad': tr_noop("Force the system into onroad mode for testing without ignition. Use with caution."),
 }
 
 
@@ -55,6 +56,13 @@ class DeviceLayout(Widget):
     self._power_off_btn = dual_button_item(lambda: tr("Reboot"), lambda: tr("Power Off"),
                                            left_callback=self._reboot_prompt, right_callback=self._power_off_prompt)
 
+    self._force_onroad_btn = button_item(
+      lambda: tr("Force Onroad"),
+      lambda: tr("END") if self._params.get_bool("ForceOnroad") else tr("START"),
+      lambda: tr(DESCRIPTIONS['force_onroad']),
+      callback=self._force_onroad_prompt
+    )
+
     items = [
       text_item(lambda: tr("Dongle ID"), self._params.get("DongleId") or (lambda: tr("N/A"))),
       text_item(lambda: tr("Serial"), self._params.get("HardwareSerial") or (lambda: tr("N/A"))),
@@ -66,6 +74,7 @@ class DeviceLayout(Widget):
                   self._on_review_training_guide, enabled=ui_state.is_offroad),
       regulatory_btn := button_item(lambda: tr("Regulatory"), lambda: tr("VIEW"), callback=self._on_regulatory, enabled=ui_state.is_offroad),
       button_item(lambda: tr("Change Language"), lambda: tr("CHANGE"), callback=self._show_language_dialog),
+      self._force_onroad_btn,
       self._power_off_btn,
     ]
     regulatory_btn.set_visible(TICI)
@@ -190,6 +199,24 @@ class DeviceLayout(Widget):
   def _perform_power_off(self, result: int):
     if not ui_state.engaged and result == DialogResult.CONFIRM:
       self._params.put_bool_nonblocking("DoShutdown", True)
+
+  def _force_onroad_prompt(self):
+    is_force_onroad = self._params.get_bool("ForceOnroad")
+
+    if is_force_onroad:
+      # Currently forced onroad, turn it off
+      self._params.put_bool("ForceOnroad", False)
+    else:
+      # Confirm before enabling force onroad
+      def confirm_force_onroad(result: int):
+        if result == DialogResult.CONFIRM:
+          self._params.put_bool("ForceOnroad", True)
+
+      dialog = ConfirmDialog(
+        tr("Are you sure you want to force onroad mode? This simulates ignition for testing purposes."),
+        tr("Force Onroad")
+      )
+      gui_app.set_modal_overlay(dialog, callback=confirm_force_onroad)
 
   def _pair_device(self):
     if not self._pair_device_dialog:
