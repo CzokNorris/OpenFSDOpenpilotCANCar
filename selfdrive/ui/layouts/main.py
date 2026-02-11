@@ -9,6 +9,7 @@ from openpilot.selfdrive.ui.onroad.augmented_road_view import AugmentedRoadView
 from openpilot.selfdrive.ui.ui_state import device, ui_state
 from openpilot.system.ui.widgets import Widget
 from openpilot.selfdrive.ui.layouts.onboarding import OnboardingWindow
+from openpilot.selfdrive.ui.widgets.can_debug_overlay import CANDebugOverlay
 
 
 class MainState(IntEnum):
@@ -29,6 +30,9 @@ class MainLayout(Widget):
 
     # Initialize layouts
     self._layouts = {MainState.HOME: HomeLayout(), MainState.SETTINGS: SettingsLayout(), MainState.ONROAD: AugmentedRoadView()}
+
+    # CAN debug overlay (shows when UI Debug Mode is active)
+    self._can_debug_overlay = CANDebugOverlay()
 
     self._sidebar_rect = rl.Rectangle(0, 0, 0, 0)
     self._content_rect = rl.Rectangle(0, 0, 0, 0)
@@ -106,3 +110,6 @@ class MainLayout(Widget):
 
     content_rect = self._content_rect if self._sidebar.is_visible else self._rect
     self._layouts[self._current_mode].render(content_rect)
+
+    # Render CAN debug overlay on top (only visible when debug mode is active)
+    self._can_debug_overlay.render(self._rect)
