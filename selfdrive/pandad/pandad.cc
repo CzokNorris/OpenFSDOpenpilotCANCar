@@ -71,6 +71,15 @@ Panda *connect(std::string serial="", uint32_t index=0) {
     panda->set_can_fd_auto(i, true);
   }
 
+  // Set CAN speed - default to 125 kbps for CANabstractCAR
+  // Can be overridden with CAN_SPEED_KBPS environment variable
+  const char* can_speed_env = getenv("CAN_SPEED_KBPS");
+  uint16_t can_speed = can_speed_env ? static_cast<uint16_t>(std::stoi(can_speed_env)) : 125;
+  LOGW("Setting CAN speed to %d kbps", can_speed);
+  for (int i = 0; i < PANDA_CAN_CNT; i++) {
+    panda->set_can_speed_kbps(i, can_speed);
+  }
+
   if (!panda->up_to_date() && !getenv("BOARDD_SKIP_FW_CHECK")) {
     throw std::runtime_error("Panda firmware out of date. Run pandad.py to update.");
   }
