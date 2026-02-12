@@ -64,6 +64,7 @@ class CANDebugOverlay(Widget):
 
     # CAN bus speeds from panda (bus 0, 1, 2)
     self._can_speeds = [0, 0, 0]
+    self._safety_mode = "unknown"
 
   def _check_debug_enabled(self) -> bool:
     """Check if debug mode is enabled (cached check every 0.5s)."""
@@ -98,6 +99,8 @@ class CANDebugOverlay(Widget):
           self._can_speeds[0] = ps.canState0.canSpeed
           self._can_speeds[1] = ps.canState1.canSpeed
           self._can_speeds[2] = ps.canState2.canSpeed
+          # Get safety model name
+          self._safety_mode = str(ps.safetyModel).replace('safetyModel.', '')
     except Exception:
       pass  # Silently handle any messaging errors
 
@@ -179,8 +182,13 @@ class CANDebugOverlay(Widget):
     speed_text = f"Bus Speeds: {self._can_speeds[0]}kb | {self._can_speeds[1]}kb | {self._can_speeds[2]}kb"
     rl.draw_text_ex(self._font, speed_text, rl.Vector2(overlay_x + PADDING, speed_y), FONT_SIZE - 2, 0, SPEED_COLOR)
 
+    # Draw safety mode
+    safety_y = speed_y + LINE_HEIGHT
+    safety_text = f"Safety: {self._safety_mode}"
+    rl.draw_text_ex(self._font, safety_text, rl.Vector2(overlay_x + PADDING, safety_y), FONT_SIZE - 2, 0, SPEED_COLOR)
+
     # Draw column headers
-    col_header_y = speed_y + LINE_HEIGHT
+    col_header_y = safety_y + LINE_HEIGHT
     rl.draw_text_ex(self._font, "Bus  Addr     Data", rl.Vector2(overlay_x + PADDING, col_header_y), FONT_SIZE - 2, 0, HEADER_COLOR)
 
     # Draw messages
