@@ -16,6 +16,7 @@ TEXT_COLOR = rl.Color(255, 255, 255, 255)
 STALE_TEXT_COLOR = rl.Color(150, 150, 150, 255)
 ERROR_TEXT_COLOR = rl.Color(255, 100, 100, 255)
 HEADER_COLOR = rl.Color(100, 200, 255, 255)
+SPEED_COLOR = rl.Color(100, 255, 100, 255)  # Green for CAN speed info
 FONT_SIZE = 22
 LINE_HEIGHT = 26
 PADDING = 10
@@ -55,10 +56,14 @@ class CANDebugOverlay(Widget):
     self._messages: dict[tuple[int, int], CANMessage] = {}
     self._message_order: deque[tuple[int, int]] = deque(maxlen=MAX_MESSAGES * 2)
 
-    # CAN socket
+    # CAN sockets
     self._can_sock = None
+    self._panda_sock = None
     self._debug_enabled = False
     self._last_param_check = 0.0
+
+    # CAN bus speeds from panda (bus 0, 1, 2)
+    self._can_speeds = [0, 0, 0]
 
   def _check_debug_enabled(self) -> bool:
     """Check if debug mode is enabled (cached check every 0.5s)."""
@@ -67,15 +72,34 @@ class CANDebugOverlay(Widget):
       self._debug_enabled = self._params.get_bool("ShowDebugInfo")
       self._last_param_check = current_time
 
-      # Initialize or cleanup CAN socket based on debug state
+      # Initialize or cleanup sockets based on debug state
       if self._debug_enabled and self._can_sock is None:
         self._can_sock = messaging.sub_sock('can', conflate=True, timeout=0)
+        self._panda_sock = messaging.sub_sock('pandaStates', conflate=True, timeout=0)
       elif not self._debug_enabled and self._can_sock is not None:
         self._can_sock = None
+        self._panda_sock = None
         self._messages.clear()
         self._message_order.clear()
 
     return self._debug_enabled
+
+  def _update_can_speeds(self):
+    """Poll for panda states and update CAN bus speeds."""
+    if self._panda_sock is None:
+      return
+
+    try:
+      msgs = messaging.drain_sock(self._panda_sock)
+      for msg in msgs:
+        if msg.which() == 'pandaStates' and len(msg.pandaStates) > 0:
+          ps = msg.pandaStates[0]  # First panda
+          # Get CAN speeds from each bus state
+          self._can_speeds[0] = ps.canState0.canSpeed
+          self._can_speeds[1] = ps.canState1.canSpeed
+          self._can_speeds[2] = ps.canState2.canSpeed
+    except Exception:
+      pass  # Silently handle any messaging errors
 
   def _update_messages(self):
     """Poll for new CAN messages and update the display list."""
@@ -125,7 +149,8 @@ class CANDebugOverlay(Widget):
     if not self._check_debug_enabled():
       return
 
-    # Update messages from CAN bus
+    # Update messages from CAN bus and panda states
+    self._update_can_speeds()
     self._update_messages()
 
     # Debug: print message count periodically
@@ -149,8 +174,13 @@ class CANDebugOverlay(Widget):
     header_y = overlay_y + PADDING
     rl.draw_text_ex(self._font_bold, header_text, rl.Vector2(overlay_x + PADDING, header_y), FONT_SIZE, 0, HEADER_COLOR)
 
+    # Draw CAN bus speeds
+    speed_y = header_y + LINE_HEIGHT
+    speed_text = f"Bus Speeds: {self._can_speeds[0]}kb | {self._can_speeds[1]}kb | {self._can_speeds[2]}kb"
+    rl.draw_text_ex(self._font, speed_text, rl.Vector2(overlay_x + PADDING, speed_y), FONT_SIZE - 2, 0, SPEED_COLOR)
+
     # Draw column headers
-    col_header_y = header_y + LINE_HEIGHT
+    col_header_y = speed_y + LINE_HEIGHT
     rl.draw_text_ex(self._font, "Bus  Addr     Data", rl.Vector2(overlay_x + PADDING, col_header_y), FONT_SIZE - 2, 0, HEADER_COLOR)
 
     # Draw messages
