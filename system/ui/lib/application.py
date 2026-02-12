@@ -32,6 +32,11 @@ def _s32(v: int) -> int:
 def _i32(x: int) -> int:
   return ctypes.c_int32(int(x)).value
 
+
+def _u32(x: int) -> int:
+  """Convert signed int to unsigned int32 for cffi functions expecting unsigned int."""
+  return int(x) & 0xFFFFFFFF
+
 _DEFAULT_FPS = int(os.getenv("FPS", {'tizi': 20}.get(HARDWARE.get_device_type(), 60)))
 FPS_LOG_INTERVAL = 5  # Seconds between logging FPS drops
 FPS_DROP_THRESHOLD = 0.9  # FPS drop threshold for triggering a warning
@@ -636,9 +641,9 @@ class GuiApplication:
   def _set_styles(self):
     rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiControlProperty.BORDER_WIDTH, 0)
     rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiDefaultProperty.TEXT_SIZE, DEFAULT_TEXT_SIZE)
-    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiDefaultProperty.BACKGROUND_COLOR, _i32(rl.color_to_int(rl.BLACK)))
-    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiControlProperty.TEXT_COLOR_NORMAL, _s32(rl.color_to_int(DEFAULT_TEXT_COLOR)))
-    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiControlProperty.BASE_COLOR_NORMAL, _i32(rl.color_to_int(rl.Color(50, 50, 50, 255))))
+    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiDefaultProperty.BACKGROUND_COLOR, _u32(rl.color_to_int(rl.BLACK)))
+    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiControlProperty.TEXT_COLOR_NORMAL, _u32(rl.color_to_int(DEFAULT_TEXT_COLOR)))
+    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiControlProperty.BASE_COLOR_NORMAL, _u32(rl.color_to_int(rl.Color(50, 50, 50, 255))))
 
   def _patch_text_functions(self):
     # Wrap pyray text APIs to apply a global text size scale so our px sizes match Qt
